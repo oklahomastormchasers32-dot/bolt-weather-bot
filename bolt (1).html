@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Bolt the Weather Bot ⚡</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #fff;
+      margin: 0; padding: 0;
+      display: flex; flex-direction: column; align-items: center;
+    }
+    #chat {
+      width: 400px; height: 500px;
+      background: #222; border-radius: 12px; padding: 10px;
+      overflow-y: auto; margin-top: 20px;
+    }
+    .message { margin: 8px 0; padding: 8px; border-radius: 8px; }
+    .user { background: #444; text-align: right; }
+    .bot { background: #333; text-align: left; }
+    #inputRow { margin-top: 10px; display: flex; }
+    #inputRow input { flex: 1; padding: 10px; border-radius: 8px; border: none; }
+    #inputRow button { margin-left: 8px; padding: 10px; border: none; border-radius: 8px; background: #555; color: #fff; }
+    #flash {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: white; opacity: 0; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <h1>⚡ Meet Bolt the Weather Bot ⚡</h1>
+  <div id="chat"></div>
+  <div id="inputRow">
+    <input id="userInput" type="text" placeholder="Ask me about the weather...">
+    <button onclick="sendMessage()">Send</button>
+  </div>
+  <div id="flash"></div>
+  <audio id="thunder" src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3"></audio>
+
+  <script>
+    const API_KEY = "110d0afa850394a84ee0fdd461aa7c9b"; // your OpenWeather key
+    const chatEl = document.getElementById("chat");
+    const inputEl = document.getElementById("userInput");
+
+    function addMessage(text, sender) {
+      const msg = document.createElement("div");
+      msg.className = "message " + sender;
+      msg.textContent = text;
+      chatEl.appendChild(msg);
+      chatEl.scrollTop = chatEl.scrollHeight;
+    }
+
+    /* ---- Chrome-friendly TTS ---- */
+    let selectedVoice = null;
+    function loadVoices() {
+      const voices = speechSynthesis.getVoices();
+      if (voices.length > 0) {
+        selectedVoice = voices.find(v => v.lang.startsWith("en")) || voices[0];
+      }
+    }
+    speechSynthesis.onvoiceschanged = loadVoices;
+    loadVoices();
+
+    function speak(text) {
+      if (!text) return;
+      const utter = new SpeechSynthesisUtterance(text);
+      if (selectedVoice) utter.voice = selectedVoice;
+      utter.pitch = 0.7; // robotic/deep
+      utter.rate = 0.9;
+      speechSynthesis.cancel();
+      speechSynthesis.speak(utter);
+    }
+
+    /* ---- Weather ---- */
+    async function getWeather(city) {
+      try {
+        const url = `https://api.openweathermap.org/data/2.5/weather?q=${encodeURIComponent(city)}&appid=${API_KEY}&units=metric`;
+        const res = await fetch(url);
+        if (!res.ok) return `Bolt couldn't find "${city}".`;
+        const data = await res.json();
+        return `Bolt reporting: Weather in ${data.name} is ${data.weather[0].description}, ${data.main.temp}°C (feels like ${data.main.feels_like}°C).`;
+      } catch {
+        return "Bolt crashed trying to get the weather. Oops.";
+      }
+    }
+
+    /* ---- General replies ---- */
+    const generalReplies = [
+      "Bolt here! You rang?",
+      "I’m basically Alexa’s cooler cousin.",
+      "Error 404: my patience not found.",
+      "Humans ask too many questions. But okay...",
+      "Weather? Small talk? I do it all."
+    ];
+
+    /* ---- Handle input ---- */
+    async function handleUserText(rawText) {
+      const text = (rawText || '').trim();
+      if (!text) return;
+      addMessage(text, "user");
+      inputEl.value = "";
+
+      let reply = "";
+      if (/weather|forecast|temperature|rain|hot|cold|storm|sunny|snow/i.test(text)) {
+        const inMatch = text.match(/in\s+([a-zA-Z\s]+)/i);
+        if (inMatch) {
+          reply = await getWeather(inMatch[1].trim());
+        } else {
+          reply = "Bolt needs a city name. Try 'weather in London'.";
+        }
+      } else {
+        reply = generalReplies[Math.floor(Math.random() * generalReplies.length)];
+      }
+
+      addMessage(reply, "bot");
+      speak(reply);
+    }
+
+    function sendMessage() {
+      handleUserText(inputEl.value);
+    }
+
+    inputEl.addEventListener("keypress", e => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    /* ---- Random thunder + flash ---- */
+    function triggerThunder() {
+      const flash = document.getElementById("flash");
+      const thunder = document.getElementById("thunder");
+      flash.style.opacity = 1;
+      setTimeout(() => flash.style.opacity = 0, 150);
+      thunder.volume = 1.0;
+      thunder.play();
+      const next = Math.floor(Math.random() * 360000) + 240000; // every 4-10 mins
+      setTimeout(triggerThunder, next);
+    }
+    setTimeout(triggerThunder, 30000); // first strike after 30s
+  </script>
+</body>
+</html>
